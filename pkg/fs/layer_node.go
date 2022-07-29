@@ -92,7 +92,7 @@ func (n *layerNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut)
 			n.fs.knownNodeMu.Unlock()
 		}
 
-		l, err := n.fs.layManager.ResolverMetaLayer(ctx, n.refNode.ref, n.digest)
+		l, err := n.fs.layManager.ResolverMetaLayer(ctx, n.refNode.ref, n.refNode.rawRef, n.digest)
 		if err != nil {
 			return nil, syscall.EIO
 		}
