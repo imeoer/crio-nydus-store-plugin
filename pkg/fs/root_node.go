@@ -66,8 +66,9 @@ func (n *rootNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) 
 	}
 	sAttr := defaultDirAttr(&out.Attr)
 	child := &refNode{
-		fs:  n.fs,
-		ref: refSpec,
+		fs:     n.fs,
+		ref:    refSpec,
+		rawRef: name,
 	}
 	copyAttr(&child.attr, &out.Attr)
 	return n.fs.newInodeWithID(ctx, func(ino uint32) fusefs.InodeEmbedder {

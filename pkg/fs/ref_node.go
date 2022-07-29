@@ -15,9 +15,10 @@ import (
 // refNode is the node at <mountpoint>/<imageref>.
 type refNode struct {
 	fusefs.Inode
-	fs   *fs
-	attr fuse.Attr
-	ref  reference.Spec
+	fs     *fs
+	attr   fuse.Attr
+	ref    reference.Spec
+	rawRef string
 }
 
 var _ = (fusefs.InodeEmbedder)((*refNode)(nil))

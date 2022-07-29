@@ -33,7 +33,7 @@ func main() {
 		Version: "0.0.0",
 		Flags:   flags.F,
 		Action: func(c *cli.Context) error {
-			if err := logging.SetUp(flags.Args.LogLevel); err != nil {
+			if err := logging.SetUp(flags.Args.LogLevel, flags.Args.LogToStdout, flags.Args.LogDir, flags.Args.RootDir); err != nil {
 				return errors.Wrap(err, "failed to prepare logger")
 			}
 
