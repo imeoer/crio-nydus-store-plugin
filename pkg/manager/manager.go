@@ -177,7 +177,7 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 			} else {
 				mountPoint, err := r.nydusFs.MountPoint(rawRef)
 				if err == nil {
-					cmd := exec.Command(fmt.Sprintf("mount --bind %s %s", mountPoint, targetPath))
+					cmd := exec.Command("mount", "-o", "bind,ro", mountPoint, targetPath)
 					err = cmd.Run()
 					if err != nil {
 						log.G(ctx).Errorf("mount bind file has error: %+v", err)
@@ -207,7 +207,7 @@ func (r *LayerManager) Release(ctx context.Context, refspec reference.Spec, dgst
 	i := r.refCounter[refspec.String()][dgst.String()]
 	if i <= 0 {
 		if v, ok := r.metaLayerMountMap[refspec.String()]; ok {
-			cmd := exec.Command(fmt.Sprintf("umount %s", v))
+			cmd := exec.Command("umount", v)
 			if err := cmd.Run(); err != nil {
 				log.G(ctx).Errorf("umount bind nydus %v/%v failed: %+v", refspec, dgst, err)
 				return 0, err
