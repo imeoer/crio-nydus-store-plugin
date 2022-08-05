@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/reference"
@@ -177,7 +177,8 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 			} else {
 				mountPoint, err := r.nydusFs.MountPoint(rawRef)
 				if err == nil {
-					err = syscall.Mount(mountPoint, targetPath, "", syscall.MS_BIND, "")
+					cmd := exec.Command(fmt.Sprintf("mount --bind %s %s", mountPoint, targetPath))
+					err = cmd.Run()
 					if err != nil {
 						log.G(ctx).Errorf("mount bind file has error: %+v", err)
 					} else {
@@ -205,6 +206,15 @@ func (r *LayerManager) Release(ctx context.Context, refspec reference.Spec, dgst
 	r.refCounter[refspec.String()][dgst.String()]--
 	i := r.refCounter[refspec.String()][dgst.String()]
 	if i <= 0 {
+		if v, ok := r.metaLayerMountMap[refspec.String()]; ok {
+			cmd := exec.Command(fmt.Sprintf("umount %s", v))
+			if err := cmd.Run(); err != nil {
+				log.G(ctx).Errorf("umount bind nydus %v/%v failed: %+v", refspec, dgst, err)
+				return 0, err
+			}
+			delete(r.metaLayerMountMap, refspec.String())
+		}
+
 		// No reference to this layer. release it.
 		delete(r.refCounter, dgst.String())
 		if len(r.refCounter[refspec.String()]) == 0 {
