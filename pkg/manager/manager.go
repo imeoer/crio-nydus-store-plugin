@@ -86,12 +86,13 @@ func NewLayerManager(ctx context.Context, rootDir string, hosts source.RegistryH
 		return nil, fmt.Errorf("failed to setup resolver: %w", err)
 	}
 	return &LayerManager{
-		refPool:     refPool,
-		hosts:       hosts,
-		resolveLock: new(utils.NamedMutex),
-		refCounter:  make(map[string]map[string]int),
-		nydusFs:     nydusFs,
-		rootDir:     rootDir,
+		refPool:           refPool,
+		hosts:             hosts,
+		resolveLock:       new(utils.NamedMutex),
+		refCounter:        make(map[string]map[string]int),
+		nydusFs:           nydusFs,
+		rootDir:           rootDir,
+		metaLayerMountMap: make(map[string]string),
 	}, nil
 }
 
@@ -107,10 +108,10 @@ type LayerManager struct {
 	disableVerification bool
 	resolveLock         *utils.NamedMutex
 
-	refCounter map[string]map[string]int
-	rootDir    string
-
-	nydusFs *nydusFS.Filesystem
+	refCounter        map[string]map[string]int
+	rootDir           string
+	metaLayerMountMap map[string]string
+	nydusFs           *nydusFS.Filesystem
 
 	mu sync.Mutex
 }
@@ -164,16 +165,23 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 
 		go func() {
 			log.G(ctx).Infof("nydus mount meta layer ref is %s digest is %s", refspec.String(), target.Digest.String())
+			targetPath := fmt.Sprintf("%s/store/%s/%s/diff", r.rootDir, rawRef, target.Digest.String())
+			if _, ok := r.metaLayerMountMap[refspec.String()]; ok {
+				log.G(ctx).Warnf("nydus duplicate mount meta layer ref is %s digest is %s", refspec.String(), target.Digest.String())
+				return
+			}
+
 			err = r.nydusFs.Mount(ctx, rawRef, target.Annotations)
 			if err != nil {
 				log.G(ctx).Errorf("mount diff file has error: %+v", err)
 			} else {
 				mountPoint, err := r.nydusFs.MountPoint(rawRef)
 				if err == nil {
-					targetPath := fmt.Sprintf("%s/store/%s/%s/diff", r.rootDir, rawRef, target.Digest.String())
 					err = syscall.Mount(mountPoint, targetPath, "", syscall.MS_BIND, "")
 					if err != nil {
 						log.G(ctx).Errorf("mount bind file has error: %+v", err)
+					} else {
+						r.metaLayerMountMap[refspec.String()] = targetPath
 					}
 				} else {
 					log.G(ctx).Errorf("get mount point failed: %+v", err)
