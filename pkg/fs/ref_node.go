@@ -60,9 +60,6 @@ func (n *refNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (
 	})
 }
 
-// Rmdir marks this layer as "release".
-// We don't use layernode.Unlink because Unlink event doesn't reach here when "use" file isn't visible
-// to the filesystem client.
 func (n *refNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	targetDigest, err := digest.Parse(name)
 	if err != nil {

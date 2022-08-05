@@ -86,13 +86,12 @@ func NewLayerManager(ctx context.Context, rootDir string, hosts source.RegistryH
 		return nil, fmt.Errorf("failed to setup resolver: %w", err)
 	}
 	return &LayerManager{
-		refPool:          refPool,
-		hosts:            hosts,
-		resolveLock:      new(utils.NamedMutex),
-		refCounter:       make(map[string]map[string]int),
-		nydusFs:          nydusFs,
-		rootDir:          rootDir,
-		fuseMountBindMap: make(map[string]string),
+		refPool:     refPool,
+		hosts:       hosts,
+		resolveLock: new(utils.NamedMutex),
+		refCounter:  make(map[string]map[string]int),
+		nydusFs:     nydusFs,
+		rootDir:     rootDir,
 	}, nil
 }
 
@@ -108,9 +107,8 @@ type LayerManager struct {
 	disableVerification bool
 	resolveLock         *utils.NamedMutex
 
-	refCounter       map[string]map[string]int
-	rootDir          string
-	fuseMountBindMap map[string]string
+	refCounter map[string]map[string]int
+	rootDir    string
 
 	nydusFs *nydusFS.Filesystem
 
@@ -175,8 +173,6 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 					err = syscall.Mount(mountPoint, targetPath, "", syscall.MS_BIND, "")
 					if err != nil {
 						log.G(ctx).Errorf("mount bind file has error: %+v", err)
-					} else {
-						r.fuseMountBindMap[refspec.String()] = targetPath
 					}
 				} else {
 					log.G(ctx).Errorf("get mount point failed: %+v", err)
@@ -200,12 +196,6 @@ func (r *LayerManager) Release(ctx context.Context, refspec reference.Spec, dgst
 	r.refCounter[refspec.String()][dgst.String()]--
 	i := r.refCounter[refspec.String()][dgst.String()]
 	if i <= 0 {
-		if v, ok := r.fuseMountBindMap[refspec.String()]; ok {
-			if err := syscall.Unmount(v, 0); err != nil {
-				return 0, err
-			}
-		}
-
 		// No reference to this layer. release it.
 		delete(r.refCounter, dgst.String())
 		if len(r.refCounter[refspec.String()]) == 0 {
