@@ -71,5 +71,5 @@ Exce command below.
 
 ```shell
 >>> cd /path/to/crio-nydus-store-plugin
->>> go run cmd/store/main.go --nydusd-path /usr/local/bin/nydusd --log-to-stdout --log-level debug --config-path /etc/nydusd-config.json
+>>> go run cmd/store/main.go --nydusd-path /usr/local/bin/nydusd --log-to-stdout --log-level debug --config-path /etc/nydusd-config.json --root /var/lib/nydus-store
 ```
