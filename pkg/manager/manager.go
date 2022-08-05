@@ -161,8 +161,9 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 			log.G(ctx).Errorf("download snapshot files failed: %+v", err)
 			return nil, err
 		}
-		log.G(ctx).Infof("ref is %s digest is %s", refspec.String(), target.Digest.String())
+
 		go func() {
+			log.G(ctx).Infof("nydus mount meta layer ref is %s digest is %s", refspec.String(), target.Digest.String())
 			err = r.nydusFs.Mount(ctx, rawRef, target.Annotations)
 			if err != nil {
 				log.G(ctx).Errorf("mount diff file has error: %+v", err)
