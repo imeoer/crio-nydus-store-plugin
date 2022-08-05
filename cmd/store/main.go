@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -42,16 +43,15 @@ func main() {
 				return errors.Wrap(err, "invalid argument")
 			}
 
-			mountPoint := "/var/lib/nydus-store/store"
-			rootDir := "/var/lib/nydus-store"
+			mountPoint := fmt.Sprintf("%s/store", flags.Args.RootDir)
 
 			hosts := resolver.RegistryHostsFromConfig([]resolver.Credential{dockerconfig.NewDockerconfigKeychain(c.Context)}...)
-			layManager, err := manager.NewLayerManager(c.Context, rootDir, hosts, &cfg)
+			layManager, err := manager.NewLayerManager(c.Context, flags.Args.RootDir, hosts, &cfg)
 			if err != nil {
 				panic(err)
 			}
 
-			if err := fs.Mount(c.Context, mountPoint, rootDir, true, layManager); err != nil {
+			if err := fs.Mount(c.Context, mountPoint, flags.Args.RootDir, true, layManager); err != nil {
 				log.G(c.Context).WithError(err).Fatalf("failed to mount fs at %q", mountPoint)
 			}
 			defer func() {

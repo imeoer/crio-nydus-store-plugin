@@ -13,7 +13,7 @@ import (
 	"github.com/containerd/containerd/reference"
 	"github.com/containerd/containerd/snapshots/storage"
 	"github.com/containerd/nydus-snapshotter/config"
-	fs2 "github.com/containerd/nydus-snapshotter/pkg/filesystem/fs"
+	nydusFS "github.com/containerd/nydus-snapshotter/pkg/filesystem/fs"
 	"github.com/containerd/nydus-snapshotter/pkg/label"
 	"github.com/containerd/nydus-snapshotter/pkg/process"
 	"github.com/containerd/nydus-snapshotter/pkg/signature"
@@ -59,21 +59,21 @@ func NewLayerManager(ctx context.Context, rootDir string, hosts source.RegistryH
 		return nil, err
 	}
 
-	opts := []fs2.NewFSOpt{
-		fs2.WithProcessManager(pm),
-		fs2.WithNydusdBinaryPath(cfg.NydusdBinaryPath, cfg.DaemonMode),
-		fs2.WithMeta(rootDir),
-		fs2.WithDaemonConfig(cfg.DaemonCfg),
-		fs2.WithVPCRegistry(cfg.ConvertVpcRegistry),
-		fs2.WithVerifier(verifier),
-		fs2.WithDaemonMode(cfg.DaemonMode),
-		fs2.WithLogLevel(cfg.LogLevel),
-		fs2.WithLogDir(cfg.LogDir),
-		fs2.WithLogToStdout(cfg.LogToStdout),
-		fs2.WithNydusdThreadNum(cfg.NydusdThreadNum),
+	opts := []nydusFS.NewFSOpt{
+		nydusFS.WithProcessManager(pm),
+		nydusFS.WithNydusdBinaryPath(cfg.NydusdBinaryPath, cfg.DaemonMode),
+		nydusFS.WithMeta(rootDir),
+		nydusFS.WithDaemonConfig(cfg.DaemonCfg),
+		nydusFS.WithVPCRegistry(cfg.ConvertVpcRegistry),
+		nydusFS.WithVerifier(verifier),
+		nydusFS.WithDaemonMode(cfg.DaemonMode),
+		nydusFS.WithLogLevel(cfg.LogLevel),
+		nydusFS.WithLogDir(cfg.LogDir),
+		nydusFS.WithLogToStdout(cfg.LogToStdout),
+		nydusFS.WithNydusdThreadNum(cfg.NydusdThreadNum),
 	}
 
-	nydusFs, err := fs2.NewFileSystem(ctx, opts...)
+	nydusFs, err := nydusFS.NewFileSystem(ctx, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize nydus filesystem")
 	}
@@ -107,10 +107,11 @@ type LayerManager struct {
 	disableVerification bool
 	resolveLock         *utils.NamedMutex
 
-	refCounter map[string]map[string]int
-	rootDir    string
+	refCounter       map[string]map[string]int
+	rootDir          string
+	fuseMountBindMap map[string]string
 
-	nydusFs *fs2.Filesystem
+	nydusFs *nydusFS.Filesystem
 
 	mu sync.Mutex
 }
@@ -146,6 +147,16 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 	if _, ok := target.Annotations[label.NydusMetaLayer]; ok {
 		target.Annotations[label.CRIImageRef] = refspec.String()
 		target.Annotations[label.CRILayerDigest] = target.Digest.String()
+
+		// mkdir directory.
+		workdir := r.nydusFs.UpperPath(rawRef)
+		if _, err := os.Stat(workdir); os.IsNotExist(err) {
+			if err = os.MkdirAll(workdir, 0755); err != nil {
+				log.G(ctx).Errorf("mkdir nydus snapshot dir failed: %+v", err)
+				return nil, err
+			}
+		}
+
 		err = r.nydusFs.PrepareMetaLayer(ctx, storage.Snapshot{ID: rawRef}, target.Annotations)
 		if err != nil {
 			log.G(ctx).Errorf("download snapshot files failed: %+v", err)
@@ -163,6 +174,8 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 					err = syscall.Mount(mountPoint, targetPath, "", syscall.MS_BIND, "")
 					if err != nil {
 						log.G(ctx).Errorf("mount bind file has error: %+v", err)
+					} else {
+						r.fuseMountBindMap[refspec.String()] = targetPath
 					}
 				} else {
 					log.G(ctx).Errorf("get mount point failed: %+v", err)
@@ -186,6 +199,12 @@ func (r *LayerManager) Release(ctx context.Context, refspec reference.Spec, dgst
 	r.refCounter[refspec.String()][dgst.String()]--
 	i := r.refCounter[refspec.String()][dgst.String()]
 	if i <= 0 {
+		if v, ok := r.fuseMountBindMap[refspec.String()]; ok {
+			if err := syscall.Unmount(v, 0); err != nil {
+				return 0, err
+			}
+		}
+
 		// No reference to this layer. release it.
 		delete(r.refCounter, dgst.String())
 		if len(r.refCounter[refspec.String()]) == 0 {
