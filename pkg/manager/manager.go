@@ -86,12 +86,13 @@ func NewLayerManager(ctx context.Context, rootDir string, hosts source.RegistryH
 		return nil, fmt.Errorf("failed to setup resolver: %w", err)
 	}
 	return &LayerManager{
-		refPool:     refPool,
-		hosts:       hosts,
-		resolveLock: new(utils.NamedMutex),
-		refCounter:  make(map[string]map[string]int),
-		nydusFs:     nydusFs,
-		rootDir:     rootDir,
+		refPool:          refPool,
+		hosts:            hosts,
+		resolveLock:      new(utils.NamedMutex),
+		refCounter:       make(map[string]map[string]int),
+		nydusFs:          nydusFs,
+		rootDir:          rootDir,
+		fuseMountBindMap: make(map[string]string),
 	}, nil
 }
 
