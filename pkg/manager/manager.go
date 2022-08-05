@@ -157,7 +157,7 @@ func (r *LayerManager) ResolverMetaLayer(ctx context.Context, refspec reference.
 		}
 
 		err = r.nydusFs.PrepareMetaLayer(ctx, storage.Snapshot{ID: rawRef}, target.Annotations)
-		if err != nil && strings.Contains(err.Error(), "file exists") {
+		if err != nil && !strings.Contains(err.Error(), "file exists") {
 			log.G(ctx).Errorf("download snapshot files failed: %+v", err)
 			return nil, err
 		}
