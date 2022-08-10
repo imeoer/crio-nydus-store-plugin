@@ -2,6 +2,8 @@
 
 The project is an implementation of additional layer store plugin of CRI-O/Podman, it provides CRI-O/Podman with the ability to lazy mount [nydus](https://nydus.dev/) images.
 
+[![asciicast](https://asciinema.org/a/EqYr5HCcP5LndnFbKnBucPeqd.svg)](https://asciinema.org/a/EqYr5HCcP5LndnFbKnBucPeqd)
+
 ## Quick Start
 
 1. Build store plugin
@@ -46,7 +48,7 @@ Prepare a nydus configuration JSON file like below, named as `/etc/nydusd-config
     "backend": {
       "type": "registry",
       "config": {
-        "scheme": "https",
+        "scheme": "http",
         "timeout": 5,
         "connect_timeout": 5,
         "retry_limit": 2
